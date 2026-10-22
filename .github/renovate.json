@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>clevyr/renovate-config-public"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/", "/^\\.github/workflows//"],
+      "matchStrings": [
+        "ARG +MMPROXY_REPO=(?<depName>.+)\\nARG +MMPROXY_REF=(?<currentDigest>[a-f0-9]{40})",
+        "\\s*MMPROXY_REPO: +(?<depName>.+)\\n\\s*MMPROXY_REF: +(?<currentDigest>[a-f0-9]{40})"
+      ],
+      "datasourceTemplate": "git-refs",
+      "currentValueTemplate": "master"
+    }
+  ],
+  "automerge": true
+}

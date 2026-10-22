@@ -1,0 +1,68 @@
+name: Build
+
+on: push
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MMPROXY_REPO: https://github.com/path-network/go-mmproxy.git
+  MMPROXY_REF: 006247ca7ec618d2aff02052bac839ca769991a1
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Get short upstream ref
+        id: upstream
+        run: echo "short-ref=${MMPROXY_REF::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,priority=1000,value=latest
+            type=raw,value=sha-${{ steps.upstream.outputs.short-ref }}
+          labels: |
+            org.opencontainers.image.title=go-mmproxy
+            org.opencontainers.image.description=Transparent PROXY protocol proxy that preserves the client source address
+            org.opencontainers.image.licenses=BSD-3-Clause
+            org.opencontainers.image.revision=${{ env.MMPROXY_REF }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          pull: true
+          push: ${{ github.ref_name == 'main' }}
+          platforms: linux/amd64,linux/arm64/v8
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            MMPROXY_REPO=${{ env.MMPROXY_REPO }}
+            MMPROXY_REF=${{ env.MMPROXY_REF }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
